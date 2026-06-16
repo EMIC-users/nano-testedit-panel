@@ -26,8 +26,9 @@ uint16_t f_ovf = 1234;
 void onReset()
 {
     Graphics_OLED_clear();
+    displayTest();
     Graphics_OLED_bindFncAt(20, 24, 1, Edit_Edit1_editableVar, &caudal, 6, "-###,##");
-    Edit_Edit1_begin(&caudal, 6, "-###,##");
+    Edit_Edit1_begin(&nivel, 1, "####");
 }
 
 
@@ -35,7 +36,6 @@ void Keyboard_Pad_onPress(uint8_t key)
 {
     if (key == 13)
     {
-        Edit_Edit1_cancel();
         Edit_Edit1_accept();
     }
     else
@@ -62,6 +62,15 @@ void Keyboard_Nav_onPress(uint8_t key)
             Edit_Edit1_prevDigit();
             break;
     }
+}
+
+
+void displayTest(void)
+{
+    Graphics_OLED_clear();
+    Graphics_OLED_bindFncAt(99, 49, 0, Edit_Edit1_editableVar, &nivel, 1, "####");
+    Graphics_OLED_rect(25, 13, 1, 1);
+    Graphics_OLED_bindAt(97, 17, 0, &nivel, 1, "%4u");
 }
 
 

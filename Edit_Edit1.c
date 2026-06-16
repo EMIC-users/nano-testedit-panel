@@ -180,28 +180,26 @@ void Edit_Edit1_begin(void* var, uint8_t type, char* mask)
     ed_cursor = ed_firstEditable();
 }
 
-/* ASCII (cleaned) -> streamIn -> typed variable. */
 static const char* ed_inPtr;
 static uint16_t     ed_inLeft;
 static char     ed_inGet(void)   { if (ed_inLeft) { ed_inLeft--; return *ed_inPtr++; } return 0; }
 static uint16_t ed_inCount(void) { return ed_inLeft; }
 static streamIn_t ed_inStream = { ed_inGet, ed_inCount };
 
-void Edit_Edit1_accept(void)
+static void ed_commit(void)
 {
     uint8_t i, j = 0;
     if (ed_activeVar == 0) return;
 
-
-    for (i = 0; i < ed_len; i++)      /* clean buffer: drop padding spaces, ',' -> '.' */
+    for (i = 0; i < ed_len; i++)      /* clean buffer: ',' -> '.', drop padding spaces and the '+' sign */
     {
         char c = ed_buf[i];
         if (c == ',') c = '.';
-        if (c == ' ' || c == '+') continue;   /* descarta relleno y el signo positivo */
+        if (c == ' ' || c == '+') continue;
         ed_view[j++] = c;
     }
     ed_view[j] = 0;
-    ed_inPtr = ed_view;
+    ed_inPtr  = ed_view;
     ed_inLeft = j;
 
     switch (ed_type)
@@ -221,21 +219,32 @@ void Edit_Edit1_accept(void)
     ed_activeVar = 0;                 /* close edit */
 }
 
-void Edit_Edit1_cancel(void)
+static void ed_abort(void)
 {
     ed_activeVar = 0;                 /* discard, keep previous value */
 }
+
+void Edit_Edit1_accept(void) { ed_commit(); }
+
 
 /*==================[navigation / editing]===================================*/
 
 void Edit_Edit1_nextDigit(void)
 {
-    if (ed_activeVar) ed_cursor = ed_moveNext(ed_cursor);
+    uint8_t next;
+    if (ed_activeVar == 0) return;
+    next = ed_moveNext(ed_cursor);
+    if (next == ed_cursor) ed_commit();     /* past the least-significant digit -> accept */
+    else                   ed_cursor = next;
 }
 
 void Edit_Edit1_prevDigit(void)
 {
-    if (ed_activeVar) ed_cursor = ed_movePrev(ed_cursor);
+    uint8_t prev;
+    if (ed_activeVar == 0) return;
+    prev = ed_movePrev(ed_cursor);
+    if (prev == ed_cursor) ed_abort();      /* before the most-significant pos/sign -> cancel */
+    else                   ed_cursor = prev;
 }
 
 void Edit_Edit1_incDigit(void)

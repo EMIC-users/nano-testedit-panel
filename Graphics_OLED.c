@@ -32,6 +32,30 @@ static const uint8_t fontHeights[] = {7, 9, 32};
 static const char    fontFirst[]   = {' ', ' ', '0'};
 static const char    fontLast[]    = {'^', 'Z', '9'};
 
+typedef struct {
+    void*    ptr;       /* address of the watched GLOBAL variable        */
+    char*    format;    /* fixed-width printf-style format (e.g. "%5d")  */
+    uint8_t  type;      /* GFX_BIND_* selector                           */
+    uint8_t  x;
+    uint8_t  y;
+    uint8_t  font;
+} gfxBind_t;
+
+static gfxBind_t gfxBinds[GFX_OLED_MAX_BINDS];
+static uint8_t   gfxBindCount = 0;
+
+static void setFont(uint8_t fontId);   /* defined below in the text section */
+
+static void renderBind(uint8_t fontId, uint8_t x, uint8_t y, char* format, ...)
+{
+    va_list arg;
+    setFont(fontId);
+    cursorX = x;
+    cursorY = y;
+    va_start(arg, format);
+    sendDataToStream(&streamOut_Graphic_OLED, format, arg);
+    va_end(arg);
+}
 
 typedef struct {
     gfxProvider_t provider;  /* produces the text to draw                     */
@@ -75,6 +99,30 @@ void Graphics_OLED_init(void)
 
 void Graphics_OLED_poll(void)
 {
+    // v0: re-render every bound field into the framebuffer BEFORE the flush.
+    // Safe (no tearing): the frame is assembled whole, then dumped at once.
+    uint8_t k;
+    for (k = 0; k < gfxBindCount; k++)
+    {
+        gfxBind_t* b = &gfxBinds[k];
+        switch (b->type)
+        {
+            case GFX_BIND_U8:    renderBind(b->font, b->x, b->y, b->format, (unsigned int)(*(uint8_t*) b->ptr)); break;
+            case GFX_BIND_U16:   renderBind(b->font, b->x, b->y, b->format, (unsigned int)(*(uint16_t*)b->ptr)); break;
+            case GFX_BIND_U32:   renderBind(b->font, b->x, b->y, b->format, (uint32_t)(*(uint32_t*)b->ptr));     break;
+            case GFX_BIND_I8:    renderBind(b->font, b->x, b->y, b->format, (int)(*(int8_t*) b->ptr));           break;
+            case GFX_BIND_I16:   renderBind(b->font, b->x, b->y, b->format, (int)(*(int16_t*)b->ptr));           break;
+            case GFX_BIND_I32:   renderBind(b->font, b->x, b->y, b->format, (int32_t)(*(int32_t*)b->ptr));       break;
+            case GFX_BIND_U64:   renderBind(b->font, b->x, b->y, b->format, (uint64_t)(*(uint64_t*)b->ptr));    break;
+            case GFX_BIND_I64:   renderBind(b->font, b->x, b->y, b->format, (int64_t)(*(int64_t*)b->ptr));      break;
+            case GFX_BIND_FLOAT: renderBind(b->font, b->x, b->y, b->format, (double)(*(float*)  b->ptr));        break;
+            case GFX_BIND_CHAR:  renderBind(b->font, b->x, b->y, b->format, (int)(*(char*)    b->ptr));         break;
+            // Unsupported type: draw a visible marker (forced 5x7 so it shows on
+            // any font) instead of silently rendering nothing. Uses a literal
+            // format with no conversion specifier -> never touches the va_list.
+            default:             renderBind(GFX_FONT_5X7, b->x, b->y, "ERR");                                    break;
+        }
+    }
 
     // Provider-backed fields: ask each provider for its text and draw it. The
     // provider owns the formatting (it received var/type/mask at bind time).
@@ -98,6 +146,7 @@ void Graphics_OLED_clear(void)
     uint16_t i;
     for (i = 0; i < GFX_OLED_WIDTH; i++)
         Graphics_OLED_framebuffer[i] = 0;
+    gfxBindCount = 0;   // clearing the screen also drops the bound fields
     gfxFncBindCount = 0;   // ...and the provider-backed fields too
 }
 
@@ -136,6 +185,30 @@ void Graphics_OLED_line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
 
 /*==================[rect / circle]=======================================*/
 
+void Graphics_OLED_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+{
+    int16_t i;
+    int16_t x2, y2;
+    if (w == 0 || h == 0) return;
+    x2 = (int16_t)x + w - 1;
+    y2 = (int16_t)y + h - 1;
+
+    /* top & bottom edges */
+    for (i = x; i <= x2; i++)
+        if (i >= 0 && i < GFX_OLED_WIDTH)
+        {
+            if (y  < GFX_OLED_HEIGHT)               bit_set(Graphics_OLED_framebuffer[i], y);
+            if (y2 >= 0 && y2 < GFX_OLED_HEIGHT)    bit_set(Graphics_OLED_framebuffer[i], y2);
+        }
+
+    /* left & right edges */
+    for (i = y; i <= y2; i++)
+        if (i >= 0 && i < GFX_OLED_HEIGHT)
+        {
+            if (x  < GFX_OLED_WIDTH)                bit_set(Graphics_OLED_framebuffer[x],  i);
+            if (x2 >= 0 && x2 < GFX_OLED_WIDTH)     bit_set(Graphics_OLED_framebuffer[x2], i);
+        }
+}
 
 
 /*==================[text]=================================================*/
@@ -211,6 +284,17 @@ void Graphics_OLED_printAt(uint8_t x, uint8_t y, uint8_t fontId, char* format, .
 
 /*==================[bindAt — reactive numeric fields]=====================*/
 
+void Graphics_OLED_bindAt(uint8_t x, uint8_t y, uint8_t fontId, void* var, uint8_t type, char* format)
+{
+    if (gfxBindCount >= GFX_OLED_MAX_BINDS) return;   // table full: drop silently
+    gfxBinds[gfxBindCount].ptr    = var;
+    gfxBinds[gfxBindCount].format = format;
+    gfxBinds[gfxBindCount].type   = type;
+    gfxBinds[gfxBindCount].x      = x;
+    gfxBinds[gfxBindCount].y      = y;
+    gfxBinds[gfxBindCount].font   = fontId;
+    gfxBindCount++;
+}
 
 void Graphics_OLED_bindFncAt(uint8_t x, uint8_t y, uint8_t fontId, gfxProvider_t provider, void* var, uint8_t type, char* mask)
 {

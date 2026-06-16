@@ -15,6 +15,7 @@
 void onReset();
 void Keyboard_Pad_onPress(uint8_t key);
 void Keyboard_Nav_onPress(uint8_t key);
+void displayTest(void);
 
 #endif /* USERFNCFILE_H */
 
