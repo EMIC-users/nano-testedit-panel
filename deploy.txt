@@ -1,0 +1,8 @@
+
+    // Generated header and implementation
+
+
+    // Copy sidebar-tabs plugins
+
+    // Set I2C module ID
+

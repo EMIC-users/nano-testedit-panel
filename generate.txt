@@ -1,0 +1,185 @@
+
+//-------------- Hardware Config ---------------------
+
+//------------------- Process EMIC-Generate files result ----------------
+
+// Functions:
+
+
+// Events:
+
+
+//------------------- APIs (basic skeleton) -----------------------
+
+// LEDs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Timer
+
+
+
+
+
+
+
+
+
+
+// OLED Display (SSD1322 128x64 via PMP)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Edit API (numeric editor over picture mask; provider editableVar for bindFncAt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Keyboard Pad 3x4 (drive rows, sense columns with internal pull-up)
+// Keymap segun serigrafia del panel: 1 2 3 / 4 5 6 / 7 8 9 / , 0 Enter
+
+
+
+
+
+
+// Shared key-code table (KEY_UP, KEY_ENTER, ...) — copied once for all instances.
+
+// key0..key11 map physical index (row*cols+col) to a key code; default = identity.
+
+
+
+// Keyboard Nav 3x3 (row3 reuses ROW2 — dead case, ROWS=3)
+// Keymap: flechas (idx 3=up, 6=down, 7=right, 8=left) + AUX1..AUX5 (idx 4,5,0,1,2)
+
+
+
+
+
+
+// Shared key-code table (KEY_UP, KEY_ENTER, ...) — copied once for all instances.
+
+// key0..key11 map physical index (row*cols+col) to a key code; default = identity.
+
+
+
+// EMIC Bus (I2C communication) — I2C2 en el HW real (SCL2=RB3 pin24, SDA2=RB2 pin23).
+// CAUSA RAIZ del bug de Etapa 2: con port=1 (I2C1), I2CEN=1 toma SCL1/SDA1 = RB8/RB9,
+// que en esta placa son PMD4/PMD3 del bus PMP del display -> corrompia el OLED.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------- main  -----------------------
+
+
+
+
+
+
+
+
+
+
+
+//------------------- Copy EMIC-Generate files result ----------------
+
+//------------------- Set userFncFile.c as a compiler module ----------------
+
+//------------------- Add all compiler modules to the project ----------------
+
